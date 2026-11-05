@@ -644,8 +644,10 @@
                 for (let x = roiX1; x < roiX2; x += 2) {
                     const p = (y * fW + x) * 4;
                     const r = img[p], g = img[p + 1], b = img[p + 2];
-                    // Bola amarilla/dorada: R y G altos, B notablemente menor
-                    if (r > 175 && g > 140 && b < 135 && (r + g - 2 * b) > 130) {
+                    
+                    // Bola amarilla/dorada (Tolerante a reflejos blancos y brillos de pantalla)
+                    // Exigimos R y G altos, y que el Azul (B) sea menor que ellos, sin importar si es muy claro
+                    if (r > 150 && g > 140 && (r - b) > 35 && (g - b) > 25) {
                         ballSumX += x;
                         ballSumY += y;
                         ballPixels++;
@@ -654,7 +656,8 @@
             }
 
             let ballPos = null;
-            if (ballPixels >= 5 && ballPixels < 450) {
+            // Hemos bajado el mínimo de píxeles (de 5 a 3) por si el reflejo se come casi toda la bola
+            if (ballPixels >= 3 && ballPixels < 500) {
                 ballPos = { x: ballSumX / ballPixels, y: ballSumY / ballPixels };
                 // Dibujar anillo amarillo sobre la bola detectada
                 overlayCtx.strokeStyle = '#facc15';
@@ -791,22 +794,23 @@
             const statusDot = document.getElementById('cup-status-dot');
 
             if (ballPos && trackedCups.length > 0) {
-                // La bola entra o sale debajo de un vaso levantado: buscamos el vaso alineado horizontalmente con la bola
+                // El factor clave es la alineación HORIZONTAL (eje X).
+                // Ignoramos la altura (Y) porque al levantarse el vaso se aleja hacia arriba,
+                // pero sigue estando en la misma columna que la bola.
                 let bestCup = null;
-                let bestScore = Infinity;
+                let minDx = Infinity;
 
                 for (let cup of trackedCups) {
                     const dx = Math.abs(cup.x - ballPos.x);
-                    const dy = Math.abs((cup.y + 18) - ballPos.y);
-                    // Priorizamos la alineación horizontal (el vaso levantado está justo encima de la bola)
-                    const score = dx * 1.6 + dy * 0.7;
-                    if (score < bestScore) {
-                        bestScore = score;
+                    
+                    if (dx < minDx) {
+                        minDx = dx;
                         bestCup = cup;
                     }
                 }
 
-                if (bestCup && bestScore < 85) {
+                // Tolerancia horizontal (si el vaso está en la misma columna que la bola)
+                if (bestCup && minDx < 60) {
                     ballCupId = bestCup.id;
                     lastBallSeenTime = performance.now();
                     statusText.textContent = "¡BOLA DETECTADA Y ENGANCHADA!";
