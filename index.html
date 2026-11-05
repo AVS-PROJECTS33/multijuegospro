@@ -667,87 +667,63 @@
                 overlayCtx.stroke();
             }
 
-            // 2. DETECTAR LOS 3 VASOS (buscando sus tapas blancas superiores con azul debajo)
-            const visited = new Uint8Array(fW * fH);
-            const cupCandidates = [];
+            // 2. DETECTAR LOS 3 VASOS (Ahora TODO el vaso es azul. Usamos un escáner de columnas/histograma)
+            const colBlueCounts = new Int32Array(fW);
+            const colTopY = new Int32Array(fW);
+            colTopY.fill(fH);
 
-            for (let y = roiY1; y < roiY2; y += 2) {
-                for (let x = roiX1; x < roiX2; x += 2) {
-                    const idx = y * fW + x;
-                    if (visited[idx]) continue;
-
-                    const p = idx * 4;
+            for (let x = roiX1; x < roiX2; x += 2) {
+                let count = 0;
+                let topY = fH;
+                for (let y = roiY1; y < roiY2; y += 2) {
+                    const p = (y * fW + x) * 4;
                     const r = img[p], g = img[p + 1], b = img[p + 2];
+                    
+                    // Condición de azul dominante (tolera brillos y distintos tonos del juego nuevo)
+                    if (b > 110 && b > r + 25 && b > g + 10) {
+                        count++;
+                        if (y < topY) topY = y; // Guardamos el borde superior del vaso para dibujar la diana luego
+                    }
+                }
+                colBlueCounts[x] = count;
+                if (count > 0) colTopY[x] = topY;
+            }
 
-                    // Tapa blanca/cian muy brillante del vaso
-                    if (r > 175 && g > 185 && b > 195) {
-                        let stack = [idx];
-                        visited[idx] = 1;
-                        let count = 0;
-                        let sumX = 0, sumY = 0;
-                        let minX = x, maxX = x, minY = y, maxY = y;
+            // Suavizar el histograma para eliminar ruido de la mesa o reflejos
+            const smoothed = new Int32Array(fW);
+            for (let x = roiX1 + 4; x < roiX2 - 4; x += 2) {
+                smoothed[x] = (colBlueCounts[x-4] + colBlueCounts[x-2] + colBlueCounts[x] + colBlueCounts[x+2] + colBlueCounts[x+4]) / 5;
+            }
 
-                        while (stack.length > 0) {
-                            const curr = stack.pop();
-                            count++;
-                            const cx = curr % fW;
-                            const cy = (curr - cx) / fW;
-                            sumX += cx;
-                            sumY += cy;
-                            if (cx < minX) minX = cx;
-                            if (cx > maxX) maxX = cx;
-                            if (cy < minY) minY = cy;
-                            if (cy > maxY) maxY = cy;
-
-                            const nbs = [curr - 1, curr + 1, curr - fW, curr + fW];
-                            for (let n of nbs) {
-                                if (n >= 0 && n < fW * fH && !visited[n]) {
-                                    const np = n * 4;
-                                    if (img[np] > 165 && img[np + 1] > 175 && img[np + 2] > 185) {
-                                        visited[n] = 1;
-                                        stack.push(n);
-                                    }
-                                }
-                            }
+            const cupCandidates = [];
+            // Encontrar los 3 picos de densidad (los centros de los vasos)
+            for (let x = roiX1 + 10; x < roiX2 - 10; x += 2) {
+                const val = smoothed[x];
+                if (val > 12) { // Mínimo de altura azul para considerarlo vaso
+                    let isMax = true;
+                    // Ventana de 36px para asegurar que es un pico único (separa los vasos al cruzarse)
+                    for (let dx = -18; dx <= 18; dx += 2) {
+                        if (dx === 0) continue;
+                        if (smoothed[x + dx] > val) {
+                            isMax = false;
+                            break;
+                        } else if (smoothed[x + dx] === val && dx > 0) {
+                            // Resolver empates (mesetas planas) quedándonos solo con un punto
+                            isMax = false;
+                            break;
                         }
-
-                        const w = maxX - minX + 1;
-                        const h = maxY - minY + 1;
-
-                        // La tapa del vaso es un óvalo horizontal con cuerpo azul justo debajo
-                        if (count >= 18 && count <= 1400 && w >= 10 && w <= 85 && h >= 5 && h <= 55 && (w / h) >= 0.9) {
-                            const centerX = sumX / count;
-                            const centerY = sumY / count;
-
-                            // Verificar que debajo de la tapa blanca hay color azul del vaso
-                            let blueBelow = 0, samples = 0;
-                            const checkY1 = Math.min(fH - 1, maxY + 3);
-                            const checkY2 = Math.min(fH - 1, maxY + 22);
-                            for (let sy = checkY1; sy <= checkY2; sy += 3) {
-                                for (let sx = minX; sx <= maxX; sx += 3) {
-                                    const sp = (sy * fW + sx) * 4;
-                                    samples++;
-                                    if (img[sp + 2] > img[sp] + 30 && img[sp + 2] > 100) {
-                                        blueBelow++;
-                                    }
-                                }
-                            }
-
-                            if (samples > 0 && (blueBelow / samples) > 0.25) {
-                                cupCandidates.push({
-                                    x: centerX,
-                                    y: centerY,
-                                    area: count,
-                                    w,
-                                    h
-                                });
-                            }
-                        }
+                    }
+                    if (isMax) {
+                        cupCandidates.push({
+                            x: x,
+                            y: colTopY[x] + 15, // Posición Y cerca de la tapa para la diana AR
+                            area: val // Usamos la cantidad de azul de esa columna como "peso"
+                        });
                     }
                 }
             }
 
-            // Quedarnos con las 3 tapas principales
+            // Quedarnos con los 3 vasos principales (las 3 columnas más azules)
             cupCandidates.sort((a, b) => b.area - a.area);
             const detected = cupCandidates.slice(0, 3);
 
