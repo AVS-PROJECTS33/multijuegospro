@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Multijuegos Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100dvh;
+            background-color: #0f172a; /* Slate 900 */
+            color: white;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #app-layout {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+
+        #camera-section {
+            flex: 1;
+            position: relative;
+            background: #000;
+            overflow: hidden;
+            border-bottom: 2px solid #1e293b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+        }
+
+        #overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .guide-box {
+            position: absolute;
+            width: 70%;
+            height: 40%;
+            border: 2px dashed rgba(255, 255, 255, 0.4);
+            border-radius: 16px;
+            pointer-events: none;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+            z-index: 5;
+        }
+
+        #bottom-panel {
+            height: 45vh;
+            min-height: 320px;
+            background: #0f172a;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 20;
+        }
+
+        .dice-number {
+            font-size: 7rem;
+            font-weight: 900;
+            line-height: 1;
+            color: #3b82f6;
+            transition: transform 0.1s;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
+        }
+
+        .dice-number.pop {
+            transform: scale(1.15);
+            color: #22c55e;
+            text-shadow: 0 0 40px rgba(34, 197, 94, 0.5);
+        }
+
+        .math-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+            max-width: 340px;
+            margin: 0 auto;
+        }
+
+        .math-btn {
+            height: 70px;
+            border-radius: 20px;
+            font-size: 2rem;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #334155;
+            color: white;
+            box-shadow: 0 6px 0 #1e293b;
+            transition: all 0.1s;
+        }
+
+        .math-btn.correct {
+            background-color: #22c55e;
+            box-shadow: 0 6px 0 #166534, 0 0 20px rgba(34, 197, 94, 0.5);
+            transform: translateY(-2px);
+            color: white;
+        }
+
+        .math-btn.wrong {
+            background-color: #ef4444;
+            box-shadow: 0 6px 0 #991b1b;
+            opacity: 0.5;
+            color: rgba(255,255,255,0.7);
+        }
+
+        /* Estilos Secuencia 3x3 */
+        .seq-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 10px;
+            width: min(68vw, 220px);
+            height: min(68vw, 220px);
+        }
+        .seq-cell {
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 1.2rem;
+            color: #475569;
+            transition: transform 0.05s;
+        }
+        .seq-cell.hit {
+            background: #22c55e !important;
+            border-color: #ffffff !important;
+            color: #052e16 !important;
+            box-shadow: 0 0 25px rgba(34, 197, 94, 0.85);
+            transform: scale(1.06);
+        }
+
+        /* Estilos Vasos (Trileros) */
+        .cups-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            width: 100%;
+            max-width: 340px;
+            padding: 0 12px;
+        }
+        .cup-card {
+            height: 120px;
+            background: #1e293b;
+            border: 3px solid #334155;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            color: #64748b;
+            font-weight: 900;
+            transition: all 0.06s ease;
+        }
+        .cup-card.has-ball {
+            background: #22c55e;
+            border-color: #ffffff;
+            color: #052e16;
+            box-shadow: 0 0 30px rgba(34, 197, 94, 0.85);
+            transform: translateY(-6px) scale(1.05);
+        }
+
+        #hidden-canvas { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen" class="fixed inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center p-6 text-center">
+        <div class="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(37,99,235,0.4)]">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+        </div>
+        <h1 class="text-4xl font-black mb-2">Multijuegos</h1>
+        <p class="text-slate-400 mb-8 text-sm">Motores duales: Offline para Dados, IA para Matemáticas.</p>
+        
+        <button id="btn-start" disabled class="bg-slate-700 text-slate-400 font-bold py-4 px-12 rounded-full text-xl transition-all duration-300 w-full max-w-xs">
+            Cargando motor offline...
+        </button>
+    </div>
+
+    <div id="app-layout">
+        
+        <div id="camera-section">
+            <video id="video" autoplay playsinline webkit-playsinline muted disablePictureInPicture></video>
+            <div class="guide-box"></div>
+            <canvas id="overlay-canvas"></canvas>
+            
+            <div id="rescue-btn" class="absolute inset-0 bg-black/80 hidden items-center justify-center z-30 pointer-events-auto">
+                <p class="text-white font-bold text-lg animate-pulse border border-white/50 px-6 py-3 rounded-full backdrop-blur">Tocar para reanudar</p>
+            </div>
+        </div>
+
+        <div id="bottom-panel">
+            
+            <div class="flex-1 relative overflow-hidden">
+                
+                <div id="view-dados" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 transition-transform duration-300">
+                    <div class="absolute top-4 flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-xs font-mono text-green-400">Modo Offline (Latencia 0)</span>
+                    </div>
+                    
+                    <div id="dados-result" class="dice-number">0</div>
+                    <p class="text-slate-500 text-xs mt-2 uppercase tracking-widest font-bold">Suma Instantánea</p>
+                </div>
+
+                <!-- VISTA 2: VASOS Y BOLA (TRILEROS 0ms) -->
+                <div id="view-vasos" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 transition-transform duration-300 translate-x-full px-4">
+                    <div class="absolute top-3 flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                        <div id="cup-status-dot" class="w-2 h-2 bg-yellow-400 rounded-full animate-ping"></div>
+                        <span id="cup-status-text" class="text-xs font-mono text-yellow-300">Rastreando bola y vasos (60 FPS)</span>
+                    </div>
+
+                    <div class="cups-row mt-4">
+                        <div class="cup-card" id="cup-slot-0">
+                            <span class="text-3xl">🥤</span>
+                            <span class="text-xs tracking-wider">IZQUIERDA</span>
+                        </div>
+                        <div class="cup-card" id="cup-slot-1">
+                            <span class="text-3xl">🥤</span>
+                            <span class="text-xs tracking-wider">CENTRO</span>
+                        </div>
+                        <div class="cup-card" id="cup-slot-2">
+                            <span class="text-3xl">🥤</span>
+                            <span class="text-xs tracking-wider">DERECHA</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 mt-4">
+                        <p class="text-slate-400 text-xs text-center">Engancha la bola amarilla automáticamente</p>
+                        <button id="btn-reset-cups" class="bg-slate-800 border border-slate-600 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-lg active:scale-95">Reiniciar</button>
+                    </div>
+                </div>
+
+                <!-- VISTA 3: SECUENCIA 3x3 (0ms) -->
+                <div id="view-secuencia" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 transition-transform duration-300 translate-x-full px-4">
+                    <div class="seq-grid" id="mirror-3x3">
+                        <div class="seq-cell">•</div>
+                        <div class="seq-cell">•</div>
+                        <div class="seq-cell">•</div>
+                        <div class="seq-cell">•</div>
+                        <div class="seq-cell">•</div>
+                        <div class="seq-cell">•</div>
+                        <div class="seq-cell">•</div>
+                        <div class="seq-cell">•</div>
+                        <div class="seq-cell">•</div>
+                    </div>
+                    <p class="text-slate-500 text-xs mt-2 text-center">Alinea la barra amarilla arriba y el 3x3 abajo</p>
+                </div>
+
+                <div id="view-maths" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 transition-transform duration-300 translate-x-full px-4">
+                    
+                    <!-- Formulario de API Key (Se oculta si ya existe) -->
+                    <div id="api-key-container" class="w-full max-w-sm mb-4">
+                        <div class="bg-blue-900/30 border border-blue-500/30 p-4 rounded-xl mb-4">
+                            <p class="text-sm text-blue-200 mb-2">Para leer textos necesitas la IA de Google.</p>
+                            <input type="password" id="api-key-input" placeholder="Pega tu API Key de Google aquí" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 mb-2 text-sm">
+                            <button id="btn-save-key" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg text-sm">Guardar y Activar</button>
+                        </div>
+                    </div>
+
+                    <!-- Interfaz del juego Math -->
+                    <div id="math-game-ui" class="w-full flex-col items-center hidden">
+                        <div class="flex items-center justify-between w-full max-w-sm mb-4 px-2">
+                            <div class="flex items-center gap-2">
+                                <div id="math-status-dot" class="w-2 h-2 bg-blue-500 rounded-full animate-ping"></div>
+                                <span id="math-status-text" class="text-xs font-mono text-slate-400">Escaneando...</span>
+                            </div>
+                            <button id="btn-reset-key" class="text-xs text-slate-500 underline">Cambiar API Key</button>
+                        </div>
+
+                        <div class="bg-white rounded-2xl w-full max-w-sm p-4 mb-6 shadow-lg">
+                            <div id="math-equation" class="text-3xl font-black text-slate-800 text-center tracking-tight">?</div>
+                        </div>
+
+                        <div class="math-grid">
+                            <div class="math-btn" id="btn-tl">-</div>
+                            <div class="math-btn" id="btn-tr">-</div>
+                            <div class="math-btn" id="btn-bl">-</div>
+                            <div class="math-btn" id="btn-br">-</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Botón Flotante Menú Juegos -->
+    <div class="fixed bottom-6 left-6 z-50 flex flex-col items-start pointer-events-none">
+        <!-- Menú Desplegable -->
+        <div id="game-menu" class="mb-4 bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl overflow-hidden flex flex-col w-56 origin-bottom-left transition-all duration-200 scale-0 opacity-0 pointer-events-auto">
+            <div class="bg-slate-900 px-4 py-2 border-b border-slate-700">
+                <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Cambiar Juego</span>
+            </div>
+            <button id="menu-dados" class="flex items-center gap-3 px-4 py-3 hover:bg-slate-700 transition text-left text-sm font-bold text-blue-400 border-b border-slate-700">
+                <span class="text-2xl">🎲</span> Dados (Offline)
+            </button>
+            <button id="menu-vasos" class="flex items-center gap-3 px-4 py-3 hover:bg-slate-700 transition text-left text-sm font-bold text-white border-b border-slate-700">
+                <span class="text-2xl">🥤</span> Vasos y Bola (0ms)
+            </button>
+            <button id="menu-secuencia" class="flex items-center gap-3 px-4 py-3 hover:bg-slate-700 transition text-left text-sm font-bold text-white border-b border-slate-700">
+                <span class="text-2xl">⚡</span> Secuencia 3x3 (0ms)
+            </button>
+            <button id="menu-maths" class="flex items-center gap-3 px-4 py-3 hover:bg-slate-700 transition text-left text-sm font-bold text-white">
+                <span class="text-2xl">🧮</span> Quick Maths (IA)
+            </button>
+        </div>
+        
+        <!-- Botón Principal Flotante -->
+        <button id="btn-toggle-menu" class="w-14 h-14 bg-blue-600 hover:bg-blue-500 rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-transform active:scale-95 pointer-events-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/></svg>
+        </button>
+    </div>
+
+    <!-- Lienzo oculto para procesar imagenes -->
+    <canvas id="hidden-canvas"></canvas>
+
+    <script>
+        // Variables UI
+        const video = document.getElementById('video');
+        const startBtn = document.getElementById('btn-start');
+        const rescueBtn = document.getElementById('rescue-btn');
+        const overlayCanvas = document.getElementById('overlay-canvas');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        const hiddenCanvas = document.getElementById('hidden-canvas');
+        const hiddenCtx = hiddenCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Menu Flotante
+        const btnToggleMenu = document.getElementById('btn-toggle-menu');
+        const gameMenu = document.getElementById('game-menu');
+        const menuDados = document.getElementById('menu-dados');
+        const menuVasos = document.getElementById('menu-vasos');
+        const menuSecuencia = document.getElementById('menu-secuencia');
+        const menuMaths = document.getElementById('menu-maths');
+        
+        const viewDados = document.getElementById('view-dados');
+        const viewVasos = document.getElementById('view-vasos');
+        const viewSecuencia = document.getElementById('view-secuencia');
+        const viewMaths = document.getElementById('view-maths');
+        const guideBox = document.querySelector('.guide-box');
+        
+        // Estado
+        let currentMode = 'dados'; // 'dados', 'vasos', 'secuencia' o 'maths'
+        let isCameraRunning = false;
+
+        // Canvas ligero 240x240 para rastreo a 60 FPS de Vasos y Secuencia 3x3
+        const fastCanvas = document.createElement('canvas');
+        const fW = 240, fH = 240;
+        fastCanvas.width = fW;
+        fastCanvas.height = fH;
+        const fastCtx = fastCanvas.getContext('2d', { willReadFrequently: true });
+
+        // Estado del rastreador de Vasos (Trileros)
+        let trackedCups = []; // [{id, x, y}]
+        let ballCupId = -1;
+        let lastBallSeenTime = 0;
+
+        // Estado Secuencia 3x3
+        let lastTargetCell = -1;
+        let candidateCell = -1;
+        let cellStreak = 0;
+        
+        // OpenCV Vars (Dados)
+        let cvReady = false;
+        let cap, srcMat, grayMat, blurMat, threshMat, hierarchy, contours;
+        let lastDiceSum = 0;
+
+        // Gemini Vars (Maths)
+        let API_KEY = localStorage.getItem('gemini_maths_key') || "";
+        let isMathProcessing = false;
+
+        function onOpenCvReady() {
+            cvReady = true;
+            startBtn.disabled = false;
+            startBtn.textContent = "Encender Cámara";
+            startBtn.classList.replace('bg-slate-700', 'bg-blue-600');
+            startBtn.classList.replace('text-slate-400', 'text-white');
+            startBtn.classList.add('shadow-[0_0_20px_rgba(37,99,235,0.4)]');
+        }
+
+        // Lógica del Menú Flotante
+        btnToggleMenu.addEventListener('click', (e) => {
+            e.stopPropagation(); // Evitar que el clic cierre el menú al instante
+            const isClosed = gameMenu.classList.contains('scale-0');
+            if (isClosed) {
+                gameMenu.classList.remove('scale-0', 'opacity-0');
+                gameMenu.classList.add('scale-100', 'opacity-100');
+            } else {
+                gameMenu.classList.add('scale-0', 'opacity-0');
+                gameMenu.classList.remove('scale-100', 'opacity-100');
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!gameMenu.contains(e.target)) {
+                gameMenu.classList.add('scale-0', 'opacity-0');
+                gameMenu.classList.remove('scale-100', 'opacity-100');
+            }
+        });
+
+        function activateMode(mode) {
+            currentMode = mode;
+            const menus = {
+                dados: menuDados,
+                vasos: menuVasos,
+                secuencia: menuSecuencia,
+                maths: menuMaths
+            };
+            const views = {
+                dados: viewDados,
+                vasos: viewVasos,
+                secuencia: viewSecuencia,
+                maths: viewMaths
+            };
+
+            Object.keys(menus).forEach(k => {
+                if (k === mode) {
+                    menus[k].classList.add('text-blue-400');
+                    menus[k].classList.remove('text-white');
+                    views[k].style.transform = 'translateX(0)';
+                } else {
+                    menus[k].classList.add('text-white');
+                    menus[k].classList.remove('text-blue-400');
+                    views[k].style.transform = 'translateX(100%)';
+                }
+            });
+
+            overlayCanvas.style.display = (mode === 'maths') ? 'none' : 'block';
+            guideBox.style.display = (mode === 'dados' || mode === 'maths') ? 'block' : 'none';
+            gameMenu.classList.add('scale-0', 'opacity-0');
+            gameMenu.classList.remove('scale-100', 'opacity-100');
+
+            if (mode === 'maths') checkApiKeyUI();
+        }
+
+        menuDados.addEventListener('click', () => activateMode('dados'));
+        menuVasos.addEventListener('click', () => activateMode('vasos'));
+        menuSecuencia.addEventListener('click', () => activateMode('secuencia'));
+        menuMaths.addEventListener('click', () => activateMode('maths'));
+
+        document.getElementById('btn-reset-cups').addEventListener('click', () => {
+            trackedCups = [];
+            ballCupId = -1;
+        });
+
+        startBtn.addEventListener('click', async () => {
+            if (!cvReady) return;
+            try {
+                startBtn.textContent = "Iniciando...";
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+                    audio: false
+                });
+
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play().catch(() => rescueBtn.classList.replace('hidden', 'flex'));
+                    document.getElementById('start-screen').style.display = 'none';
+                    document.getElementById('app-layout').style.display = 'flex';
+                    isCameraRunning = true;
+                    
+                    // Configurar Canvas OpenCV
+                    overlayCanvas.width = video.clientWidth;
+                    overlayCanvas.height = video.clientHeight;
+                    
+                    cap = new cv.VideoCapture(video);
+                    srcMat = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
+                    grayMat = new cv.Mat();
+                    blurMat = new cv.Mat();
+                    threshMat = new cv.Mat();
+                    hierarchy = new cv.Mat();
+                    contours = new cv.MatVector();
+
+                    // Iniciar bucles (ambos corren en paralelo, pero solo actuan si es su turno)
+                    requestAnimationFrame(processDiceOffline);
+                    processMathsAI(); 
+                };
+            } catch (err) {
+                alert("Error de cámara. Revisa permisos.");
+                startBtn.textContent = "Encender Cámara";
+            }
+        });
+
+        rescueBtn.addEventListener('click', () => {
+            video.play().then(() => rescueBtn.classList.replace('flex', 'hidden'));
+        });
+
+        function processDiceOffline() {
+            if (!isCameraRunning) return;
+            
+            // Solo dibujamos y calculamos si estamos en la pestaña de dados
+            if (currentMode === 'dados') {
+                try {
+                    cap.read(srcMat);
+                    cv.cvtColor(srcMat, grayMat, cv.COLOR_RGBA2GRAY, 0);
+                    cv.GaussianBlur(grayMat, blurMat, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+                    cv.threshold(blurMat, threshMat, 190, 255, cv.THRESH_BINARY);
+                    cv.findContours(threshMat, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+                    const scaleX = overlayCanvas.width / video.videoWidth;
+                    const scaleY = overlayCanvas.height / video.videoHeight;
+                    
+                    let totalDots = 0;
+
+                    for (let i = 0; i < contours.size(); ++i) {
+                        let cnt = contours.get(i);
+                        let area = cv.contourArea(cnt);
+
+                        if (area > 1500 && area < 50000) { 
+                            let rect = cv.boundingRect(cnt);
+                            let aspect = rect.width / rect.height;
+                            
+                            if (aspect > 0.6 && aspect < 1.4) {
+                                // Marco verde
+                                overlayCtx.strokeStyle = '#22c55e';
+                                overlayCtx.lineWidth = 3;
+                                overlayCtx.strokeRect(rect.x * scaleX, rect.y * scaleY, rect.width * scaleX, rect.height * scaleY);
+
+                                let dieRoi = blurMat.roi(rect);
+                                let dieThresh = new cv.Mat();
+                                cv.adaptiveThreshold(dieRoi, dieThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 8);
+
+                                let dotContours = new cv.MatVector();
+                                let dotHierarchy = new cv.Mat();
+                                cv.findContours(dieThresh, dotContours, dotHierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+                                for (let j = 0; j < dotContours.size(); ++j) {
+                                    let dotCnt = dotContours.get(j);
+                                    let dotArea = cv.contourArea(dotCnt);
+                                    
+                                    if (dotArea > 15 && dotArea < 500) {
+                                        let perimeter = cv.arcLength(dotCnt, true);
+                                        let circularity = 4 * Math.PI * (dotArea / (perimeter * perimeter));
+                                        
+                                        if (circularity > 0.4) { 
+                                            totalDots++;
+                                            let M = cv.moments(dotCnt, false);
+                                            if (M.m00 !== 0) {
+                                                let cx = rect.x + (M.m10 / M.m00);
+                                                let cy = rect.y + (M.m01 / M.m00);
+                                                overlayCtx.beginPath();
+                                                overlayCtx.arc(cx * scaleX, cy * scaleY, 4, 0, 2 * Math.PI, false);
+                                                overlayCtx.fillStyle = '#ef4444'; // Puntos rojos
+                                                overlayCtx.fill();
+                                            }
+                                        }
+                                    }
+                                    dotCnt.delete();
+                                }
+                                dieRoi.delete(); dieThresh.delete(); dotContours.delete(); dotHierarchy.delete();
+                            }
+                        }
+                        cnt.delete();
+                    }
+
+                    // UI Update instántaneo
+                    const resultEl = document.getElementById('dados-result');
+                    if (totalDots > 0) {
+                        resultEl.textContent = totalDots;
+                        if(totalDots !== lastDiceSum) {
+                            resultEl.classList.add('pop');
+                            setTimeout(() => resultEl.classList.remove('pop'), 150);
+                        }
+                    } else {
+                        resultEl.textContent = "0";
+                    }
+                    lastDiceSum = totalDots;
+
+                } catch (e) {
+                    // Ignorar drops de frames
+                }
+            } else if (currentMode === 'vasos') {
+                processCupsOffline();
+            } else if (currentMode === 'secuencia') {
+                processSequence3x3Offline();
+            }
+            
+            // Bucle a toda pastilla (60fps) sin bloqueos
+            requestAnimationFrame(processDiceOffline);
+        }
+
+        // =========================================================================
+        // MOTOR 2: RASTREADOR DE VASOS Y BOLA (TRILEROS 60 FPS - CAMBIO DE VASO)
+        // =========================================================================
+        function processCupsOffline() {
+            if (video.videoWidth === 0 || video.paused) return;
+
+            if (overlayCanvas.width !== video.clientWidth || overlayCanvas.height !== video.clientHeight) {
+                overlayCanvas.width = video.clientWidth;
+                overlayCanvas.height = video.clientHeight;
+            }
+
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            fastCtx.drawImage(video, 0, 0, fW, fH);
+            const img = fastCtx.getImageData(0, 0, fW, fH).data;
+
+            const scaleX = overlayCanvas.width / fW;
+            const scaleY = overlayCanvas.height / fH;
+
+            // Zona activa de la mesa (evita el número blanco de puntuación de arriba)
+            const roiX1 = Math.floor(fW * 0.06);
+            const roiX2 = Math.floor(fW * 0.94);
+            const roiY1 = Math.floor(fH * 0.24);
+            const roiY2 = Math.floor(fH * 0.88);
+
+            overlayCtx.strokeStyle = 'rgba(59, 130, 246, 0.45)';
+            overlayCtx.lineWidth = 2;
+            overlayCtx.strokeRect(roiX1 * scaleX, roiY1 * scaleY, (roiX2 - roiX1) * scaleX, (roiY2 - roiY1) * scaleY);
+
+            // 1. DETECTAR LA BOLA AMARILLA (si está a la vista al inicio o al cambiar de vaso)
+            let ballSumX = 0, ballSumY = 0, ballPixels = 0;
+            for (let y = roiY1; y < roiY2; y += 2) {
+                for (let x = roiX1; x < roiX2; x += 2) {
+                    const p = (y * fW + x) * 4;
+                    const r = img[p], g = img[p + 1], b = img[p + 2];
+                    // Bola amarilla/dorada: R y G altos, B notablemente menor
+                    if (r > 175 && g > 140 && b < 135 && (r + g - 2 * b) > 130) {
+                        ballSumX += x;
+                        ballSumY += y;
+                        ballPixels++;
+                    }
+                }
+            }
+
+            let ballPos = null;
+            if (ballPixels >= 5 && ballPixels < 450) {
+                ballPos = { x: ballSumX / ballPixels, y: ballSumY / ballPixels };
+                // Dibujar anillo amarillo sobre la bola detectada
+                overlayCtx.strokeStyle = '#facc15';
+                overlayCtx.lineWidth = 4;
+                overlayCtx.beginPath();
+                overlayCtx.arc(ballPos.x * scaleX, ballPos.y * scaleY, 16, 0, Math.PI * 2);
+                overlayCtx.stroke();
+            }
+
+            // 2. DETECTAR LOS 3 VASOS (buscando sus tapas blancas superiores con azul debajo)
+            const visited = new Uint8Array(fW * fH);
+            const cupCandidates = [];
+
+            for (let y = roiY1; y < roiY2; y += 2) {
+                for (let x = roiX1; x < roiX2; x += 2) {
+                    const idx = y * fW + x;
+                    if (visited[idx]) continue;
+
+                    const p = idx * 4;
+                    const r = img[p], g = img[p + 1], b = img[p + 2];
+
+                    // Tapa blanca/cian muy brillante del vaso
+                    if (r > 175 && g > 185 && b > 195) {
+                        let stack = [idx];
+                        visited[idx] = 1;
+                        let count = 0;
+                        let sumX = 0, sumY = 0;
+                        let minX = x, maxX = x, minY = y, maxY = y;
+
+                        while (stack.length > 0) {
+                            const curr = stack.pop();
+                            count++;
+                            const cx = curr % fW;
+                            const cy = (curr - cx) / fW;
+                            sumX += cx;
+                            sumY += cy;
+                            if (cx < minX) minX = cx;
+                            if (cx > maxX) maxX = cx;
+                            if (cy < minY) minY = cy;
+                            if (cy > maxY) maxY = cy;
+
+                            const nbs = [curr - 1, curr + 1, curr - fW, curr + fW];
+                            for (let n of nbs) {
+                                if (n >= 0 && n < fW * fH && !visited[n]) {
+                                    const np = n * 4;
+                                    if (img[np] > 165 && img[np + 1] > 175 && img[np + 2] > 185) {
+                                        visited[n] = 1;
+                                        stack.push(n);
+                                    }
+                                }
+                            }
+                        }
+
+                        const w = maxX - minX + 1;
+                        const h = maxY - minY + 1;
+
+                        // La tapa del vaso es un óvalo horizontal con cuerpo azul justo debajo
+                        if (count >= 18 && count <= 1400 && w >= 10 && w <= 85 && h >= 5 && h <= 55 && (w / h) >= 0.9) {
+                            const centerX = sumX / count;
+                            const centerY = sumY / count;
+
+                            // Verificar que debajo de la tapa blanca hay color azul del vaso
+                            let blueBelow = 0, samples = 0;
+                            const checkY1 = Math.min(fH - 1, maxY + 3);
+                            const checkY2 = Math.min(fH - 1, maxY + 22);
+                            for (let sy = checkY1; sy <= checkY2; sy += 3) {
+                                for (let sx = minX; sx <= maxX; sx += 3) {
+                                    const sp = (sy * fW + sx) * 4;
+                                    samples++;
+                                    if (img[sp + 2] > img[sp] + 30 && img[sp + 2] > 100) {
+                                        blueBelow++;
+                                    }
+                                }
+                            }
+
+                            if (samples > 0 && (blueBelow / samples) > 0.25) {
+                                cupCandidates.push({
+                                    x: centerX,
+                                    y: centerY,
+                                    area: count,
+                                    w,
+                                    h
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Quedarnos con las 3 tapas principales
+            cupCandidates.sort((a, b) => b.area - a.area);
+            const detected = cupCandidates.slice(0, 3);
+
+            // 3. ASOCIAR POSICIONES DE LOS VASOS ENTRE FOTOGRAMAS (Hungarian / Greedy 3x3)
+            if (detected.length > 0) {
+                if (trackedCups.length === 0) {
+                    detected.sort((a, b) => a.x - b.x);
+                    trackedCups = detected.map((d, i) => ({ id: i, x: d.x, y: d.y }));
+                } else {
+                    const pairs = [];
+                    for (let tIdx = 0; tIdx < trackedCups.length; tIdx++) {
+                        for (let dIdx = 0; dIdx < detected.length; dIdx++) {
+                            const dx = trackedCups[tIdx].x - detected[dIdx].x;
+                            const dy = trackedCups[tIdx].y - detected[dIdx].y;
+                            pairs.push({ tIdx, dIdx, dist: Math.hypot(dx, dy) });
+                        }
+                    }
+                    pairs.sort((a, b) => a.dist - b.dist);
+
+                    const usedT = new Set();
+                    const usedD = new Set();
+                    for (let p of pairs) {
+                        if (!usedT.has(p.tIdx) && !usedD.has(p.dIdx) && p.dist < 75) {
+                            trackedCups[p.tIdx].x = detected[p.dIdx].x;
+                            trackedCups[p.tIdx].y = detected[p.dIdx].y;
+                            usedT.add(p.tIdx);
+                            usedD.add(p.dIdx);
+                        }
+                    }
+
+                    // Si faltaba algún vaso por registrar, añadirlo hasta tener 3
+                    for (let dIdx = 0; dIdx < detected.length; dIdx++) {
+                        if (!usedD.has(dIdx) && trackedCups.length < 3) {
+                            const newId = trackedCups.length;
+                            trackedCups.push({ id: newId, x: detected[dIdx].x, y: detected[dIdx].y });
+                        }
+                    }
+                }
+            }
+
+            // 4. SI LA BOLA ES VISIBLE (al principio o cuando se cambia de vaso a mitad),
+            // ACTUALIZAR AUTOMÁTICAMENTE QUÉ VASO LA TIENE
+            const statusText = document.getElementById('cup-status-text');
+            const statusDot = document.getElementById('cup-status-dot');
+
+            if (ballPos && trackedCups.length > 0) {
+                // La bola entra o sale debajo de un vaso levantado: buscamos el vaso alineado horizontalmente con la bola
+                let bestCup = null;
+                let bestScore = Infinity;
+
+                for (let cup of trackedCups) {
+                    const dx = Math.abs(cup.x - ballPos.x);
+                    const dy = Math.abs((cup.y + 18) - ballPos.y);
+                    // Priorizamos la alineación horizontal (el vaso levantado está justo encima de la bola)
+                    const score = dx * 1.6 + dy * 0.7;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        bestCup = cup;
+                    }
+                }
+
+                if (bestCup && bestScore < 85) {
+                    ballCupId = bestCup.id;
+                    lastBallSeenTime = performance.now();
+                    statusText.textContent = "¡BOLA DETECTADA Y ENGANCHADA!";
+                    statusDot.className = "w-2 h-2 bg-green-400 rounded-full animate-ping";
+                }
+            } else if (ballCupId !== -1) {
+                statusText.textContent = "SIGUIENDO VASO CON LA BOLA...";
+                statusDot.className = "w-2 h-2 bg-green-500 rounded-full animate-pulse";
+            } else {
+                statusText.textContent = "ESPERANDO VER LA BOLA AMARILLA...";
+                statusDot.className = "w-2 h-2 bg-yellow-400 rounded-full animate-ping";
+            }
+
+            // 5. ORDENAR LOS VASOS DE IZQUIERDA A DERECHA PARA EL ESPEJO INFERIOR Y DIBUJAR AR
+            const sortedLeftToRight = [...trackedCups].sort((a, b) => a.x - b.x);
+            const slots = [
+                document.getElementById('cup-slot-0'),
+                document.getElementById('cup-slot-1'),
+                document.getElementById('cup-slot-2')
+            ];
+
+            slots.forEach(s => s.classList.remove('has-ball'));
+
+            sortedLeftToRight.forEach((cup, visualIndex) => {
+                const isWinner = (cup.id === ballCupId);
+
+                if (isWinner && slots[visualIndex]) {
+                    slots[visualIndex].classList.add('has-ball');
+                }
+
+                // Dibujar marcador en la pantalla de la cámara
+                const cx = cup.x * scaleX;
+                const cy = (cup.y + 18) * scaleY;
+
+                overlayCtx.strokeStyle = isWinner ? '#22c55e' : 'rgba(255, 255, 255, 0.45)';
+                overlayCtx.lineWidth = isWinner ? 5 : 2;
+                overlayCtx.beginPath();
+                overlayCtx.arc(cx, cy, isWinner ? 30 : 20, 0, Math.PI * 2);
+                overlayCtx.stroke();
+
+                if (isWinner) {
+                    overlayCtx.fillStyle = 'rgba(34, 197, 94, 0.35)';
+                    overlayCtx.fill();
+                    overlayCtx.fillStyle = '#ffffff';
+                    overlayCtx.font = 'bold 16px sans-serif';
+                    overlayCtx.textAlign = 'center';
+                    overlayCtx.fillText('★ BOLA', cx, cy + 5);
+                }
+            });
+        }
+
+        // =========================================================================
+        // MOTOR 3: SECUENCIA 3x3 (100% OFFLINE - 0ms)
+        // =========================================================================
+        function processSequence3x3Offline() {
+            if (video.videoWidth === 0 || video.paused) return;
+
+            if (overlayCanvas.width !== video.clientWidth || overlayCanvas.height !== video.clientHeight) {
+                overlayCanvas.width = video.clientWidth;
+                overlayCanvas.height = video.clientHeight;
+            }
+
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            fastCtx.drawImage(video, 0, 0, fW, fH);
+            const imgData = fastCtx.getImageData(0, 0, fW, fH).data;
+
+            const scaleX = overlayCanvas.width / fW;
+            const scaleY = overlayCanvas.height / fH;
+
+            const seqX = Math.floor(fW * 0.08);
+            const seqY = Math.floor(fH * 0.08);
+            const seqW = Math.floor(fW * 0.84);
+            const seqH = Math.floor(fH * 0.16);
+
+            overlayCtx.strokeStyle = 'rgba(250, 204, 21, 0.75)';
+            overlayCtx.lineWidth = 2;
+            overlayCtx.strokeRect(seqX * scaleX, seqY * scaleY, seqW * scaleX, seqH * scaleY);
+
+            const winW = Math.floor(seqW / 8.5);
+            let bestYellowX = -1;
+            let maxYellowScore = -999;
+
+            for (let x = seqX; x <= seqX + seqW - winW; x += 2) {
+                let score = 0, count = 0;
+                for (let wy = seqY + 3; wy < seqY + seqH - 3; wy += 2) {
+                    for (let wx = x; wx < x + winW; wx += 2) {
+                        const p = (wy * fW + wx) * 4;
+                        const r = imgData[p], g = imgData[p + 1], b = imgData[p + 2];
+                        const yellowness = (r + g) - (1.65 * b);
+                        if (r > 150 && g > 140 && yellowness > 140) {
+                            score += yellowness;
+                            count++;
+                        }
+                    }
+                }
+                if (count > 8 && score > maxYellowScore) {
+                    maxYellowScore = score;
+                    bestYellowX = x;
+                }
+            }
+
+            let targetSignature = null;
+            if (bestYellowX !== -1) {
+                overlayCtx.strokeStyle = '#22c55e';
+                overlayCtx.lineWidth = 3;
+                overlayCtx.strokeRect(bestYellowX * scaleX, seqY * scaleY, winW * scaleX, seqH * scaleY);
+                targetSignature = extractDigitSignature(imgData, bestYellowX + 2, seqY + 2, winW - 4, seqH - 4, true);
+            }
+
+            const gridX = Math.floor(fW * 0.18);
+            const gridY = Math.floor(fH * 0.30);
+            const gridW = Math.floor(fW * 0.64);
+            const gridH = Math.floor(fH * 0.64);
+            const cellW = gridW / 3;
+            const cellH = gridH / 3;
+
+            let bestCellIndex = -1;
+            let bestMatchScore = -999;
+
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    const idx = r * 3 + c;
+                    const cx = Math.floor(gridX + c * cellW);
+                    const cy = Math.floor(gridY + r * cellH);
+                    const cw = Math.floor(cellW);
+                    const ch = Math.floor(cellH);
+
+                    overlayCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                    overlayCtx.lineWidth = 1.5;
+                    overlayCtx.strokeRect(cx * scaleX, cy * scaleY, cw * scaleX, ch * scaleY);
+
+                    if (targetSignature) {
+                        const padX = Math.floor(cw * 0.18);
+                        const padY = Math.floor(ch * 0.18);
+                        const cellSig = extractDigitSignature(imgData, cx + padX, cy + padY, cw - padX * 2, ch - padY * 2, false);
+                        if (cellSig) {
+                            const sim = compareSignatures(targetSignature, cellSig);
+                            if (sim > bestMatchScore) {
+                                bestMatchScore = sim;
+                                bestCellIndex = idx;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (bestCellIndex !== -1 && bestMatchScore > 0.52) {
+                if (bestCellIndex === candidateCell) {
+                    cellStreak++;
+                } else {
+                    candidateCell = bestCellIndex;
+                    cellStreak = 1;
+                }
+                if (cellStreak >= 2) lastTargetCell = bestCellIndex;
+            }
+
+            const cellsDOM = document.querySelectorAll('#mirror-3x3 .seq-cell');
+            cellsDOM.forEach((el, i) => {
+                if (i === lastTargetCell) {
+                    el.classList.add('hit');
+                    el.innerText = 'PULSA';
+                } else {
+                    el.classList.remove('hit');
+                    el.innerText = '•';
+                }
+            });
+
+            if (lastTargetCell !== -1) {
+                const hitR = Math.floor(lastTargetCell / 3);
+                const hitC = lastTargetCell % 3;
+                const hx = (gridX + hitC * cellW) * scaleX;
+                const hy = (gridY + hitR * cellH) * scaleY;
+                overlayCtx.strokeStyle = '#22c55e';
+                overlayCtx.lineWidth = 4;
+                overlayCtx.strokeRect(hx, hy, cellW * scaleX, cellH * scaleY);
+            }
+        }
+
+        function extractDigitSignature(imgData, rx, ry, rw, rh, isDarkOnYellow) {
+            let minVal = 999, maxVal = -999;
+            const values = new Float32Array(rw * rh);
+            for (let y = 0; y < rh; y++) {
+                for (let x = 0; x < rw; x++) {
+                    const p = ((ry + y) * fW + (rx + x)) * 4;
+                    const r = imgData[p], g = imgData[p + 1], b = imgData[p + 2];
+                    const v = isDarkOnYellow ? (r + g) * 0.5 : Math.min(r, g, b);
+                    values[y * rw + x] = v;
+                    if (v < minVal) minVal = v;
+                    if (v > maxVal) maxVal = v;
+                }
+            }
+            if (maxVal - minVal < 28) return null;
+            const thresh = isDarkOnYellow ? minVal + (maxVal - minVal) * 0.45 : minVal + (maxVal - minVal) * 0.55;
+            let bx1 = rw, by1 = rh, bx2 = 0, by2 = 0, activeCount = 0;
+            const mask = new Uint8Array(rw * rh);
+            for (let y = 0; y < rh; y++) {
+                for (let x = 0; x < rw; x++) {
+                    const isFg = isDarkOnYellow ? (values[y * rw + x] < thresh) : (values[y * rw + x] > thresh);
+                    if (isFg) {
+                        mask[y * rw + x] = 1;
+                        activeCount++;
+                        if (x < bx1) bx1 = x;
+                        if (x > bx2) bx2 = x;
+                        if (y < by1) by1 = y;
+                        if (y > by2) by2 = y;
+                    }
+                }
+            }
+            const bw = bx2 - bx1 + 1, bh = by2 - by1 + 1;
+            if (activeCount < 5 || bw < 2 || bh < 4) return null;
+            const N = 12;
+            const grid = new Uint8Array(N * N);
+            for (let gy = 0; gy < N; gy++) {
+                for (let gx = 0; gx < N; gx++) {
+                    const sx = bx1 + Math.floor((gx / N) * bw);
+                    const sy = by1 + Math.floor((gy / N) * bh);
+                    grid[gy * N + gx] = mask[sy * rw + sx];
+                }
+            }
+            return { grid, aspect: bw / bh };
+        }
+
+        function compareSignatures(sigA, sigB) {
+            const aspectDiff = Math.abs(sigA.aspect - sigB.aspect);
+            if (aspectDiff > 0.38) return 0;
+            const N = 12;
+            let bestOverlap = 0;
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    let matches = 0, total = 0;
+                    for (let y = 0; y < N; y++) {
+                        const ny = y + dy;
+                        if (ny < 0 || ny >= N) continue;
+                        for (let x = 0; x < N; x++) {
+                            const nx = x + dx;
+                            if (nx < 0 || nx >= N) continue;
+                            if (sigA.grid[y * N + x] === sigB.grid[ny * N + nx]) matches++;
+                            total++;
+                        }
+                    }
+                    const score = matches / total;
+                    if (score > bestOverlap) bestOverlap = score;
+                }
+            }
+            return bestOverlap - aspectDiff * 0.25;
+        }
+
+        const apiKeyContainer = document.getElementById('api-key-container');
+        const mathGameUI = document.getElementById('math-game-ui');
+        
+        function checkApiKeyUI() {
+            if (API_KEY) {
+                apiKeyContainer.style.display = 'none';
+                mathGameUI.style.display = 'flex';
+            } else {
+                apiKeyContainer.style.display = 'block';
+                mathGameUI.style.display = 'none';
+            }
+        }
+
+        document.getElementById('btn-save-key').addEventListener('click', () => {
+            const val = document.getElementById('api-key-input').value.trim();
+            if (val) {
+                API_KEY = val;
+                localStorage.setItem('gemini_maths_key', API_KEY);
+                checkApiKeyUI();
+            }
+        });
+
+        document.getElementById('btn-reset-key').addEventListener('click', () => {
+            API_KEY = "";
+            localStorage.removeItem('gemini_maths_key');
+            document.getElementById('api-key-input').value = "";
+            checkApiKeyUI();
+            resetMathGrid();
+        });
+
+        const mathEquation = document.getElementById('math-equation');
+        const mathStatusText = document.getElementById('math-status-text');
+        const mathStatusDot = document.getElementById('math-status-dot');
+
+        const PROMPT_MATH = `Lee la imagen. Hay una suma y 4 botones de colores debajo. 
+Devuelve ÚNICAMENTE un JSON con esta estructura exacta:
+{"ecuacion": "4 + 93", "opciones": [98, 107, 93, 97], "correcta": 97}
+Asegúrate de que el array "opciones" contiene los 4 números leyendo de izquierda a derecha y de arriba a abajo.
+Si no ves claro el juego, devuelve {"ecuacion": "", "opciones": [], "correcta": 0}.`;
+
+        async function processMathsAI() {
+            if (!isCameraRunning) return;
+
+            // Si no estamos en la pestaña de maths, o no hay clave, o el video está pausado, no gastamos internet
+            if (currentMode !== 'maths' || !API_KEY || isMathProcessing || video.videoWidth === 0 || video.paused) {
+                setTimeout(processMathsAI, 500);
+                return;
+            }
+
+            isMathProcessing = true;
+            let cooldown = 1500; // Respeto al Error 429 de Google
+
+            try {
+                // Capturar frame para IA
+                const size = Math.min(video.videoWidth, video.videoHeight);
+                const startX = (video.videoWidth - size) / 2;
+                const startY = (video.videoHeight - size) / 2;
+                hiddenCanvas.width = 400; 
+                hiddenCanvas.height = 400;
+                hiddenCtx.drawImage(video, startX, startY, size, size, 0, 0, 400, 400);
+                const base64Image = hiddenCanvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+
+                const URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${API_KEY}`;
+                
+                const response = await fetch(URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [ { text: PROMPT_MATH }, { inlineData: { mimeType: "image/jpeg", data: base64Image } } ] }],
+                        generationConfig: { temperature: 0.0 }
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                    updateMathUI(text);
+                } else if (response.status === 429) {
+                    mathStatusText.textContent = "Google limitando velocidad. Pausa...";
+                    cooldown = 4000;
+                } else {
+                    mathStatusText.textContent = `Error API: ${response.status}`;
+                }
+
+            } catch (error) {
+                mathStatusText.textContent = "Fallo de conexión...";
+            } finally {
+                isMathProcessing = false;
+                setTimeout(processMathsAI, cooldown);
+            }
+        }
+
+        function updateMathUI(aiText) {
+            try {
+                const cleanText = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
+                const data = JSON.parse(cleanText);
+                
+                if (data.ecuacion && data.opciones && data.opciones.length === 4) {
+                    mathEquation.textContent = `${data.ecuacion} = ?`;
+                    mathStatusText.textContent = "Solución encontrada";
+                    mathStatusDot.classList.replace('bg-blue-500', 'bg-green-500');
+
+                    const btns = [
+                        document.getElementById('btn-tl'),
+                        document.getElementById('btn-tr'),
+                        document.getElementById('btn-bl'),
+                        document.getElementById('btn-br')
+                    ];
+
+                    for (let i = 0; i < 4; i++) {
+                        const val = data.opciones[i];
+                        btns[i].textContent = val;
+                        
+                        // Resetea clases previas
+                        btns[i].className = 'math-btn';
+                        
+                        if (val === data.correcta) {
+                            btns[i].classList.add('correct');
+                        } else {
+                            btns[i].classList.add('wrong');
+                        }
+                    }
+                } else {
+                    // Si pierde de vista el juego
+                    resetMathGrid();
+                }
+            } catch (e) {
+                // Si la IA falla al generar el JSON, ignoramos y pasamos al siguiente frame
+                console.log("Fallo IA Parsing");
+            }
+        }
+
+        function resetMathGrid() {
+            mathEquation.textContent = "Buscando suma...";
+            mathStatusText.textContent = "Escaneando...";
+            mathStatusDot.classList.replace('bg-green-500', 'bg-blue-500');
+            const btns = ['btn-tl', 'btn-tr', 'btn-bl', 'btn-br'];
+            btns.forEach(id => {
+                const btn = document.getElementById(id);
+                btn.textContent = "-";
+                btn.className = 'math-btn';
+            });
+        }
+        
+    </script>
+</body>
+</html>
