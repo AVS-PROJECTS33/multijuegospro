@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Multijuegos Scanner</title>
+    <title>Multijuegos Scanner Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
     <style>
@@ -17,14 +17,15 @@
             font-family: ui-sans-serif, system-ui, sans-serif;
             overflow: hidden;
             touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         #app-layout {
-            display: flex;
+            display: none;
             flex-direction: column;
             width: 100%;
             height: 100%;
-            display: none;
         }
 
         #camera-section {
@@ -67,8 +68,8 @@
         }
 
         #bottom-panel {
-            height: 45vh;
-            min-height: 320px;
+            height: 44vh;
+            min-height: 300px;
             background: #0f172a;
             display: flex;
             flex-direction: column;
@@ -160,13 +161,13 @@
         .cups-row {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 14px;
+            gap: 12px;
             width: 100%;
-            max-width: 340px;
-            padding: 0 12px;
+            max-width: 350px;
+            padding: 0 10px;
         }
         .cup-card {
-            height: 120px;
+            height: 118px;
             background: #1e293b;
             border: 3px solid #334155;
             border-radius: 20px;
@@ -177,14 +178,15 @@
             gap: 6px;
             color: #64748b;
             font-weight: 900;
-            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            transition: transform 0.12s ease, background-color 0.12s ease, border-color 0.12s ease;
         }
         .cup-card.has-ball {
-            background: #22c55e;
-            border-color: #ffffff;
-            color: #052e16;
-            box-shadow: 0 0 30px rgba(34, 197, 94, 0.6);
-            transform: translateY(-8px) scale(1.05);
+            background: #22c55e !important;
+            border-color: #ffffff !important;
+            color: #052e16 !important;
+            box-shadow: 0 0 32px rgba(34, 197, 94, 0.75);
+            transform: translateY(-6px) scale(1.05);
         }
 
         #hidden-canvas { display: none; }
@@ -196,11 +198,11 @@
         <div class="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(37,99,235,0.4)]">
             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
         </div>
-        <h1 class="text-4xl font-black mb-2">Multijuegos</h1>
-        <p class="text-slate-400 mb-8 text-sm">Motores duales: Offline Ultra-Rápido e IA Analítica.</p>
+        <h1 class="text-4xl font-black mb-2">Multijuegos Pro</h1>
+        <p class="text-slate-400 mb-8 text-sm">Seguimiento 2D a 60 FPS + Motores Offline</p>
         
         <button id="btn-start" disabled class="bg-slate-700 text-slate-400 font-bold py-4 px-12 rounded-full text-xl transition-all duration-300 w-full max-w-xs">
-            Cargando motor offline...
+            Cargando motor 2D...
         </button>
     </div>
 
@@ -228,31 +230,31 @@
                     <p class="text-slate-500 text-xs mt-2 uppercase tracking-widest font-bold">Suma Instantánea</p>
                 </div>
 
-                <!-- VASOS Y BOLA (TRILEROS) -->
+                <!-- VASOS Y BOLA (TRILEROS 2D) -->
                 <div id="view-vasos" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 transition-transform duration-300 translate-x-full px-4">
-                    <div class="absolute top-3 flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700 shadow-lg">
-                        <div id="cup-status-dot" class="w-2 h-2 bg-white rounded-full animate-ping"></div>
-                        <span id="cup-status-text" class="text-xs font-mono text-slate-300 tracking-wide">Rastreando 60 FPS</span>
+                    <div class="absolute top-3 flex items-center gap-2 bg-slate-800 px-3.5 py-1.5 rounded-full border border-slate-700 shadow-lg">
+                        <div id="cup-status-dot" class="w-2.5 h-2.5 bg-amber-400 rounded-full animate-ping"></div>
+                        <span id="cup-status-text" class="text-xs font-mono font-bold text-slate-200 tracking-wide">ESPERANDO BOLA AMARILLA...</span>
                     </div>
 
                     <div class="cups-row mt-6">
-                        <div class="cup-card" id="cup-slot-0">
+                        <div class="cup-card" id="cup-slot-0" onclick="manualSelectCup(0)">
                             <span class="text-4xl drop-shadow-md">🥤</span>
-                            <span class="text-xs tracking-wider">IZQUIERDA</span>
+                            <span class="text-xs tracking-wider" id="cup-label-0">IZQUIERDA</span>
                         </div>
-                        <div class="cup-card" id="cup-slot-1">
+                        <div class="cup-card" id="cup-slot-1" onclick="manualSelectCup(1)">
                             <span class="text-4xl drop-shadow-md">🥤</span>
-                            <span class="text-xs tracking-wider">CENTRO</span>
+                            <span class="text-xs tracking-wider" id="cup-label-1">CENTRO</span>
                         </div>
-                        <div class="cup-card" id="cup-slot-2">
+                        <div class="cup-card" id="cup-slot-2" onclick="manualSelectCup(2)">
                             <span class="text-4xl drop-shadow-md">🥤</span>
-                            <span class="text-xs tracking-wider">DERECHA</span>
+                            <span class="text-xs tracking-wider" id="cup-label-2">DERECHA</span>
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-3 mt-6">
-                        <p class="text-slate-400 text-xs text-center font-medium">Ignorando texto. Sigue la bola amarilla.</p>
-                        <button id="btn-reset-cups" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 text-xs font-bold px-4 py-2 rounded-lg active:scale-95 transition-colors">Reiniciar</button>
+                    <div class="flex items-center justify-between w-full max-w-xs mt-5">
+                        <span class="text-[11px] text-slate-400">Toca un vaso abajo si quieres fijarlo manual</span>
+                        <button id="btn-reset-cups" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-bold px-3 py-1.5 rounded-lg active:scale-95 transition-colors">Reiniciar</button>
                     </div>
                 </div>
 
@@ -309,8 +311,8 @@
     </div>
 
     <!-- Menú Flotante -->
-    <div class="fixed bottom-6 left-6 z-50 flex flex-col items-start pointer-events-none">
-        <div id="game-menu" class="mb-4 bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl overflow-hidden flex flex-col w-56 origin-bottom-left transition-all duration-200 scale-0 opacity-0 pointer-events-auto">
+    <div class="fixed bottom-5 left-5 z-50 flex flex-col items-start pointer-events-none">
+        <div id="game-menu" class="mb-3 bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl overflow-hidden flex flex-col w-56 origin-bottom-left transition-all duration-200 scale-0 opacity-0 pointer-events-auto">
             <div class="bg-slate-900 px-4 py-2 border-b border-slate-700">
                 <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Modo de Escáner</span>
             </div>
@@ -318,7 +320,7 @@
                 <span class="text-2xl">🎲</span> Dados (Offline)
             </button>
             <button id="menu-vasos" class="flex items-center gap-3 px-4 py-3 hover:bg-slate-700 transition text-left text-sm font-bold text-white border-b border-slate-700">
-                <span class="text-2xl">🥤</span> Trileros (Offline)
+                <span class="text-2xl">🥤</span> Trileros 2D (60 FPS)
             </button>
             <button id="menu-secuencia" class="flex items-center gap-3 px-4 py-3 hover:bg-slate-700 transition text-left text-sm font-bold text-white border-b border-slate-700">
                 <span class="text-2xl">⚡</span> Secuencia 3x3
@@ -328,8 +330,8 @@
             </button>
         </div>
         
-        <button id="btn-toggle-menu" class="w-14 h-14 bg-blue-600 hover:bg-blue-500 rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-transform active:scale-95 pointer-events-auto">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/></svg>
+        <button id="btn-toggle-menu" class="w-12 h-12 bg-blue-600 hover:bg-blue-500 rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.5)] transition-transform active:scale-95 pointer-events-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><path d="M6 12h4"/><path d="M8 10v4"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/></svg>
         </button>
     </div>
 
@@ -351,15 +353,32 @@
         let currentMode = 'dados';
         let isCameraRunning = false;
 
+        // Canvas de alta velocidad (240x180 proporcional a 4:3)
         const fastCanvas = document.createElement('canvas');
-        const fW = 240, fH = 240;
+        const fW = 240, fH = 180;
         fastCanvas.width = fW;
         fastCanvas.height = fH;
         const fastCtx = fastCanvas.getContext('2d', { willReadFrequently: true });
 
-        // Variables Vasos
-        let trackedCups = [];
+        // =====================================================
+        // VARIABLES DEL MOTOR 2D DE VASOS (TRILEROS)
+        // =====================================================
+        let trackedCups = []; // [{ id: 0..2, x, y, vx, vy, missed }]
         let ballCupId = -1;
+        let ballVisibleStreak = 0;
+        let stableWinnerSlot = -1;
+        let candidateWinnerSlot = -1;
+        let slotStreak = 0;
+
+        // Permutaciones exactas para emparejamiento global 2D sin cruces falsos
+        const PERMS_3 = [
+            [0, 1, 2],
+            [0, 2, 1],
+            [1, 0, 2],
+            [1, 2, 0],
+            [2, 0, 1],
+            [2, 1, 0]
+        ];
 
         // Variables Secuencia
         let lastTargetCell = -1, candidateCell = -1, cellStreak = 0;
@@ -415,7 +434,6 @@
                 }
             });
 
-            // Configurar superposiciones AR
             if (mode === 'vasos') {
                 overlayCanvas.style.display = 'block';
                 guideBox.style.display = 'none';
@@ -436,10 +454,25 @@
             document.getElementById('menu-' + m).addEventListener('click', () => activateMode(m));
         });
 
+        // Permite tocar manualmente Izquierda/Centro/Derecha por si quieres fijar un vaso a mano
+        function manualSelectCup(slotIdx) {
+            if (trackedCups.length === 3) {
+                const sorted = [...trackedCups].sort((a, b) => a.x - b.x);
+                if (sorted[slotIdx]) {
+                    ballCupId = sorted[slotIdx].id;
+                    stableWinnerSlot = slotIdx;
+                    updateCupCardsUI(slotIdx, false);
+                }
+            }
+        }
+
         document.getElementById('btn-reset-cups').addEventListener('click', () => {
             trackedCups = [];
             ballCupId = -1;
-            document.getElementById('cup-status-text').textContent = "Sistema reiniciado";
+            stableWinnerSlot = -1;
+            ballVisibleStreak = 0;
+            updateCupCardsUI(-1, false);
+            document.getElementById('cup-status-text').textContent = "ESPERANDO BOLA AMARILLA...";
         });
 
         startBtn.addEventListener('click', async () => {
@@ -447,7 +480,12 @@
             try {
                 startBtn.textContent = "Iniciando...";
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        frameRate: { ideal: 60 }
+                    },
                     audio: false
                 });
                 video.srcObject = stream;
@@ -480,7 +518,7 @@
         });
 
         // =========================================================================
-        // MOTOR PRINCIPAL (ROUTER A 60 FPS)
+        // MOTOR PRINCIPAL A 60 FPS
         // =========================================================================
         function mainEngineLoop() {
             if (!isCameraRunning) return;
@@ -493,7 +531,7 @@
             if (currentMode === 'dados') {
                 processDiceOffline();
             } else if (currentMode === 'vasos') {
-                processCupsUltimate();
+                processCups2DTracker();
             } else if (currentMode === 'secuencia') {
                 processSequence3x3Offline();
             }
@@ -502,9 +540,9 @@
         }
 
         // =========================================================================
-        // MOTOR 1: VASOS Y BOLA (TRILEROS DEFINITIVO)
+        // MOTOR 2D DEFINITIVO PARA VASOS Y BOLA (SIN PÉRDIDA EN CRUCES VERTICALES)
         // =========================================================================
-        function processCupsUltimate() {
+        function processCups2DTracker() {
             if (video.videoWidth === 0 || video.paused) return;
 
             overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
@@ -513,172 +551,414 @@
             const scaleX = overlayCanvas.width / fW;
             const scaleY = overlayCanvas.height / fH;
 
-            // ZONA DE ESCANEO SEGURA: Del 20% al 75% de la altura. 
-            // Ignora físicamente todo el texto de arriba y de abajo.
-            const startY = Math.floor(fH * 0.20);
-            const endY = Math.floor(fH * 0.75);
+            // Zona activa: ignora la barra superior y corta por encima del texto "MIRA LA BOLA" (76%)
+            const minX = Math.floor(fW * 0.05);
+            const maxX = Math.floor(fW * 0.95);
+            const minY = Math.floor(fH * 0.06);
+            const maxY = Math.floor(fH * 0.76);
 
-            // 1. Detección de Colores Puros
-            const colDensity = new Int32Array(fW);
-            let ballX = 0, ballY = 0, ballPixels = 0;
+            // Marco visual de la zona libre de texto
+            overlayCtx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+            overlayCtx.lineWidth = 1.5;
+            overlayCtx.strokeRect(minX * scaleX, minY * scaleY, (maxX - minX) * scaleX, (maxY - minY) * scaleY);
 
-            for (let y = startY; y < endY; y += 2) {
-                for (let x = 10; x < fW - 10; x += 2) {
-                    const p = (y * fW + x) * 4;
+            // 1. DETECTAR BOLA AMARILLA Y MÁSCARA DE TAPAS BLANCAS
+            const whiteMask = new Uint8Array(fW * fH);
+            let ballSumX = 0, ballSumY = 0, ballCount = 0;
+            let bMinX = fW, bMaxX = 0, bMinY = fH, bMaxY = 0;
+
+            for (let y = minY; y < maxY; y++) {
+                const rowOffset = y * fW;
+                for (let x = minX; x < maxX; x++) {
+                    const idx = rowOffset + x;
+                    const p = idx * 4;
                     const r = img[p], g = img[p + 1], b = img[p + 2];
-                    
-                    // Condición Bola: Amarilla de manual
-                    if (r > 160 && g > 150 && b < 100) {
-                        ballX += x;
-                        ballY += y;
-                        ballPixels++;
+
+                    // A) ¿Es píxel de la Bola Amarilla? (R y G altos, B notablemente menor)
+                    const yellowDiff = Math.min(r, g) - b;
+                    if (r > 165 && g > 130 && yellowDiff > 35 && r >= g - 25) {
+                        ballSumX += x;
+                        ballSumY += y;
+                        ballCount++;
+                        if (x < bMinX) bMinX = x;
+                        if (x > bMaxX) bMaxX = x;
+                        if (y < bMinY) bMinY = y;
+                        if (y > bMaxY) bMaxY = y;
+                        continue;
                     }
-                    
-                    // Condición Vasos (Suma la densidad del azul cuerpo y bordes blancos)
-                    if ((b > 120 && b > r + 30 && b > g + 30) || 
-                        (r > 200 && g > 200 && b > 200) ||
-                        (g > 150 && b > 150 && r < 100)) {
-                        colDensity[x] += 1;
+
+                    // B) ¿Es píxel de Tapa Blanca/Cian del vaso?
+                    // Las tapas tienen R, G y B altos, a diferencia de la mesa/cuerpo azul donde R es muy bajo (< 85)
+                    if (g > 165 && b > 165 && r > 115 && (b - r) < 95) {
+                        whiteMask[idx] = 1;
                     }
                 }
             }
 
-            // 2. Suavizado matemático (Crea 3 montañas perfectas uniendo izquierda/derecha de cada vaso)
-            const smoothed = new Int32Array(fW);
-            const window = 12;
-            for (let x = window; x < fW - window; x++) {
-                let sum = 0;
-                for(let i = -window; i <= window; i++) sum += colDensity[x+i];
-                smoothed[x] = sum;
+            // Validar si la bola amarilla es un objeto compacto real
+            let ballDetected = false;
+            let ballX = 0, ballY = 0;
+            const ballW = bMaxX - bMinX + 1;
+            const ballH = bMaxY - bMinY + 1;
+            if (ballCount >= 12 && ballW <= 48 && ballH <= 48) {
+                ballDetected = true;
+                ballX = ballSumX / ballCount;
+                ballY = ballSumY / ballCount;
             }
 
-            // 3. Localizar los picos de las montañas
-            const peaks = [];
-            for (let x = window + 1; x < fW - window - 1; x++) {
-                if (smoothed[x] > 40) { // Cortafuegos de ruido
-                    let isMax = true;
-                    for(let i = -15; i <= 15; i++) {
-                        if(i===0) continue;
-                        if(smoothed[x+i] > smoothed[x]) { isMax = false; break; }
+            // 2. EROSIÓN MORFOLÓGICA 3x3:
+            // Elimina al 100% los aros blancos finos de la base de los vasos y deja SOLO los 3 óvalos macizos de las tapas
+            const erodedMask = new Uint8Array(fW * fH);
+            for (let y = minY + 1; y < maxY - 1; y++) {
+                const r0 = (y - 1) * fW;
+                const r1 = y * fW;
+                const r2 = (y + 1) * fW;
+                for (let x = minX + 1; x < maxX - 1; x++) {
+                    if (!whiteMask[r1 + x]) continue;
+                    // Si está pegado al brillo central de la bola amarilla, ignorar para no confundir la bola con una tapa
+                    if (ballDetected && Math.hypot(x - ballX, y - ballY) < 16) continue;
+
+                    const neighbors =
+                        whiteMask[r0 + x - 1] + whiteMask[r0 + x] + whiteMask[r0 + x + 1] +
+                        whiteMask[r1 + x - 1] + whiteMask[r1 + x] + whiteMask[r1 + x + 1] +
+                        whiteMask[r2 + x - 1] + whiteMask[r2 + x] + whiteMask[r2 + x + 1];
+
+                    if (neighbors >= 7) {
+                        erodedMask[r1 + x] = 1;
                     }
-                    if (isMax) peaks.push({x: x, score: smoothed[x]});
                 }
             }
-            
-            // Los 3 picos más altos son el centro exacto de nuestros 3 vasos
-            peaks.sort((a,b) => b.score - a.score);
-            const currentCups = peaks.slice(0, 3).map(p => ({x: p.x}));
 
-            // 4. Tracker: Conectar los vasos que se mueven con los del frame anterior
-            if (currentCups.length > 0) {
-                if (trackedCups.length === 0) {
-                    currentCups.sort((a, b) => a.x - b.x);
-                    trackedCups = currentCups.map((c, i) => ({ id: i, x: c.x }));
-                } else {
-                    const pairs = [];
-                    for (let t = 0; t < trackedCups.length; t++) {
-                        for (let c = 0; c < currentCups.length; c++) {
-                            pairs.push({ t, c, dist: Math.abs(trackedCups[t].x - currentCups[c].x) });
+            // 3. EXTRACCIÓN DE BLOBS 2D (LAS 3 TAPAS OVALADAS)
+            const visited = new Uint8Array(fW * fH);
+            const rawBlobs = [];
+            const stack = [];
+
+            for (let y = minY + 1; y < maxY - 1; y++) {
+                for (let x = minX + 1; x < maxX - 1; x++) {
+                    const startIdx = y * fW + x;
+                    if (!erodedMask[startIdx] || visited[startIdx]) continue;
+
+                    visited[startIdx] = 1;
+                    stack.push(startIdx);
+
+                    let sumX = 0, sumY = 0, area = 0;
+                    let x0 = x, x1 = x, y0 = y, y1 = y;
+
+                    while (stack.length > 0) {
+                        const curr = stack.pop();
+                        const cy = Math.floor(curr / fW);
+                        const cx = curr - cy * fW;
+
+                        sumX += cx;
+                        sumY += cy;
+                        area++;
+
+                        if (cx < x0) x0 = cx;
+                        if (cx > x1) x1 = cx;
+                        if (cy < y0) y0 = cy;
+                        if (cy > y1) y1 = cy;
+
+                        const nbs = [curr - 1, curr + 1, curr - fW, curr + fW];
+                        for (let i = 0; i < 4; i++) {
+                            const n = nbs[i];
+                            if (erodedMask[n] && !visited[n]) {
+                                visited[n] = 1;
+                                stack.push(n);
+                            }
                         }
                     }
-                    pairs.sort((a,b) => a.dist - b.dist);
-                    
+
+                    const bw = x1 - x0 + 1;
+                    const bh = y1 - y0 + 1;
+                    const fill = area / (bw * bh);
+
+                    // Filtrar por tamaño y geometría ovalada de una tapa de vaso
+                    if (area >= 10 && area <= 1100 && bw >= 5 && bw <= 75 && bh >= 3 && bh <= 50 && fill >= 0.32) {
+                        rawBlobs.push({
+                            x: sumX / area,
+                            y: sumY / area,
+                            area,
+                            w: bw,
+                            h: bh
+                        });
+                    }
+                }
+            }
+
+            // Si en un fotograma dos tapas muy rápidas se rozan en vertical u horizontal, dividir el blob doble
+            if (rawBlobs.length === 2 && trackedCups.length === 3) {
+                rawBlobs.sort((a, b) => b.area - a.area);
+                const biggest = rawBlobs[0];
+                const smaller = rawBlobs[1];
+                if (biggest.area > smaller.area * 1.65) {
+                    if (biggest.h > biggest.w * 0.95) {
+                        // Separar en vertical (cuando se alinean en el centro)
+                        const offset = biggest.h * 0.22;
+                        rawBlobs.splice(0, 1,
+                            { x: biggest.x, y: biggest.y - offset, area: biggest.area / 2 },
+                            { x: biggest.x, y: biggest.y + offset, area: biggest.area / 2 }
+                        );
+                    } else {
+                        // Separar en horizontal
+                        const offset = biggest.w * 0.22;
+                        rawBlobs.splice(0, 1,
+                            { x: biggest.x - offset, y: biggest.y, area: biggest.area / 2 },
+                            { x: biggest.x + offset, y: biggest.y, area: biggest.area / 2 }
+                        );
+                    }
+                }
+            }
+
+            // Quedarnos con las 3 tapas principales
+            rawBlobs.sort((a, b) => b.area - a.area);
+            const detected = rawBlobs.slice(0, 3);
+
+            // 4. EMPAREJAMIENTO GLOBAL 2D (ALGORITMO DE PERMUTACIÓN CON VELOCIDAD)
+            if (detected.length === 3 && trackedCups.length !== 3) {
+                detected.sort((a, b) => a.x - b.x);
+                trackedCups = detected.map((d, idx) => ({
+                    id: idx,
+                    x: d.x,
+                    y: d.y,
+                    vx: 0,
+                    vy: 0,
+                    missed: 0
+                }));
+            } else if (trackedCups.length === 3) {
+                if (detected.length === 3) {
+                    // Posición predicha 2D de cada vaso según su inercia
+                    const predX = trackedCups.map(c => c.x + c.vx * 0.65);
+                    const predY = trackedCups.map(c => c.y + c.vy * 0.65);
+
+                    let bestPerm = PERMS_3[0];
+                    let minCost = Infinity;
+
+                    for (let p = 0; p < 6; p++) {
+                        const perm = PERMS_3[p];
+                        let cost = 0;
+                        for (let i = 0; i < 3; i++) {
+                            const dx = predX[i] - detected[perm[i]].x;
+                            const dy = predY[i] - detected[perm[i]].y;
+                            cost += dx * dx + dy * dy;
+                        }
+                        if (cost < minCost) {
+                            minCost = cost;
+                            bestPerm = perm;
+                        }
+                    }
+
+                    // Actualizar posición y vector de velocidad 2D de cada vaso
+                    for (let i = 0; i < 3; i++) {
+                        const target = detected[bestPerm[i]];
+                        const cup = trackedCups[i];
+                        const newVx = target.x - cup.x;
+                        const newVy = target.y - cup.y;
+                        cup.vx = cup.vx * 0.45 + newVx * 0.55;
+                        cup.vy = cup.vy * 0.45 + newVy * 0.55;
+                        cup.x = target.x;
+                        cup.y = target.y;
+                        cup.missed = 0;
+                    }
+                } else if (detected.length > 0) {
+                    // Si por un desenfoque extremo solo se ven 1 o 2 tapas en ese milisegundo,
+                    // emparejar las visibles y mantener la 3ª por inercia sin perder su ID
                     const usedT = new Set();
-                    const usedC = new Set();
-                    for (let p of pairs) {
-                        if (!usedT.has(p.t) && !usedC.has(p.c) && p.dist < 60) {
-                            trackedCups[p.t].x = currentCups[p.c].x; // Actualizar posición
-                            usedT.add(p.t);
-                            usedC.add(p.c);
+                    const usedD = new Set();
+
+                    for (let step = 0; step < detected.length; step++) {
+                        let bestT = -1, bestD = -1, bestDist = Infinity;
+                        for (let t = 0; t < 3; t++) {
+                            if (usedT.has(t)) continue;
+                            const px = trackedCups[t].x + trackedCups[t].vx * 0.5;
+                            const py = trackedCups[t].y + trackedCups[t].vy * 0.5;
+                            for (let d = 0; d < detected.length; d++) {
+                                if (usedD.has(d)) continue;
+                                const dist = Math.hypot(px - detected[d].x, py - detected[d].y);
+                                if (dist < bestDist) {
+                                    bestDist = dist;
+                                    bestT = t;
+                                    bestD = d;
+                                }
+                            }
+                        }
+                        if (bestT !== -1 && bestDist < 55) {
+                            usedT.add(bestT);
+                            usedD.add(bestD);
+                            const cup = trackedCups[bestT];
+                            const target = detected[bestD];
+                            cup.vx = cup.vx * 0.4 + (target.x - cup.x) * 0.6;
+                            cup.vy = cup.vy * 0.4 + (target.y - cup.y) * 0.6;
+                            cup.x = target.x;
+                            cup.y = target.y;
+                            cup.missed = 0;
+                        }
+                    }
+
+                    for (let t = 0; t < 3; t++) {
+                        if (!usedT.has(t)) {
+                            const cup = trackedCups[t];
+                            cup.missed++;
+                            cup.x = Math.max(minX + 10, Math.min(maxX - 10, cup.x + cup.vx * 0.5));
+                            cup.y = Math.max(minY + 10, Math.min(maxY - 10, cup.y + cup.vy * 0.5));
+                            cup.vx *= 0.65;
+                            cup.vy *= 0.65;
                         }
                     }
                 }
             }
 
-            const statusText = document.getElementById('cup-status-text');
-            const statusDot = document.getElementById('cup-status-dot');
+            // Calcular velocidad máxima actual de los vasos (para saber si están mezclándose o quietos)
+            let maxSpeed = 0;
+            for (let i = 0; i < trackedCups.length; i++) {
+                const sp = Math.hypot(trackedCups[i].vx, trackedCups[i].vy);
+                if (sp > maxSpeed) maxSpeed = sp;
+            }
+            const isShuffling = maxSpeed > 2.2;
 
-            // 5. Lógica de Enganche de Bola
-            if (ballPixels > 10) {
-                const bx = ballX / ballPixels;
-                const by = ballY / ballPixels;
-                
-                // Dibujar anillo rastreador sobre la bola amarilla
-                overlayCtx.strokeStyle = '#fbbf24';
+            // 5. ENGANCHE DE LA BOLA AMARILLA AL VASO QUE SE LEVANTA
+            if (ballDetected) {
+                ballVisibleStreak++;
+                // Dibujar círculo amarillo sobre la bola
+                overlayCtx.strokeStyle = '#facc15';
                 overlayCtx.lineWidth = 3;
                 overlayCtx.beginPath();
-                overlayCtx.arc(bx * scaleX, by * scaleY, 12, 0, Math.PI * 2);
+                overlayCtx.arc(ballX * scaleX, ballY * scaleY, 14, 0, Math.PI * 2);
                 overlayCtx.stroke();
 
-                // Auto-asignar la bola al vaso que tenga justo encima (Misma columna X)
-                if (trackedCups.length > 0) {
-                    let bestCup = null, minDist = Infinity;
-                    for (let cup of trackedCups) {
-                        const dist = Math.abs(cup.x - bx);
-                        if (dist < minDist) { minDist = dist; bestCup = cup; }
+                // Si la bola es visible durante al menos 2 frames (33ms) y los vasos están alineados
+                if (ballVisibleStreak >= 2 && trackedCups.length === 3 && maxSpeed < 8) {
+                    let ownerCup = null;
+                    let bestScore = Infinity;
+
+                    for (let i = 0; i < 3; i++) {
+                        const cup = trackedCups[i];
+                        const dx = Math.abs(cup.x - ballX);
+                        // El vaso que descubre la bola está alineado en X con la bola y su tapa está por encima de la bola
+                        if (dx < 42 && cup.y < ballY + 12) {
+                            // Priorizar alineación horizontal exacta + altura levantada
+                            const score = dx + (cup.y - minY) * 0.25;
+                            if (score < bestScore) {
+                                bestScore = score;
+                                ownerCup = cup;
+                            }
+                        }
                     }
-                    
-                    if (bestCup && minDist < 50) {
-                        ballCupId = bestCup.id;
-                        statusText.textContent = "¡BOLA FIJADA!";
-                        statusDot.className = "w-2 h-2 bg-green-400 rounded-full animate-ping";
+
+                    if (ownerCup) {
+                        ballCupId = ownerCup.id;
                     }
                 }
             } else {
-                if (ballCupId !== -1) {
-                    statusText.textContent = "SIGUIENDO VASO...";
-                    statusDot.className = "w-2 h-2 bg-green-500 rounded-full animate-pulse";
-                } else {
-                    statusText.textContent = "BUSCANDO BOLA AMARILLA...";
-                    statusDot.className = "w-2 h-2 bg-white rounded-full animate-ping";
-                }
+                ballVisibleStreak = 0;
             }
 
-            // 6. Dibujar la Diana AR en cámara y encender tarjetas
-            const sortedLeftToRight = [...trackedCups].sort((a,b) => a.x - b.x);
-            const slots = [
-                document.getElementById('cup-slot-0'), 
-                document.getElementById('cup-slot-1'), 
-                document.getElementById('cup-slot-2')
-            ];
-            slots.forEach(s => s.classList.remove('has-ball'));
+            // 6. DIBUJAR REALIDAD AUMENTADA EN CÁMARA Y FIJAR VASO GANADOR SIN PARPADEO
+            const statusText = document.getElementById('cup-status-text');
+            const statusDot = document.getElementById('cup-status-dot');
 
-            sortedLeftToRight.forEach((cup, visualIndex) => {
-                const isWinner = (cup.id === ballCupId);
-                const cx = cup.x * scaleX;
-                
-                // Dibujar línea guía pálida para todos los vasos
-                overlayCtx.beginPath();
-                overlayCtx.moveTo(cx, startY * scaleY);
-                overlayCtx.lineTo(cx, endY * scaleY);
-                overlayCtx.lineWidth = isWinner ? 5 : 2;
-                overlayCtx.strokeStyle = isWinner ? 'rgba(34, 197, 94, 0.7)' : 'rgba(255, 255, 255, 0.15)';
-                overlayCtx.stroke();
+            if (trackedCups.length === 3) {
+                // Ordenar de izquierda a derecha para saber cuál es Izquierda (0), Centro (1), Derecha (2)
+                const sortedByX = [...trackedCups].sort((a, b) => a.x - b.x);
+                const currentWinnerSlot = sortedByX.findIndex(c => c.id === ballCupId);
 
-                if (isWinner) {
-                    // Encender UI abajo
-                    if (slots[visualIndex]) slots[visualIndex].classList.add('has-ball');
-
-                    // Dibujar Súper-Diana AR en la cámara
-                    const centerY = (startY + endY) / 2 * scaleY;
-                    overlayCtx.beginPath();
-                    overlayCtx.arc(cx, centerY, 40, 0, Math.PI * 2);
-                    overlayCtx.fillStyle = 'rgba(34, 197, 94, 0.35)';
-                    overlayCtx.fill();
-                    overlayCtx.lineWidth = 4;
-                    overlayCtx.strokeStyle = '#4ade80';
-                    overlayCtx.stroke();
-                    
-                    overlayCtx.fillStyle = '#ffffff';
-                    overlayCtx.font = '900 20px sans-serif';
-                    overlayCtx.textAlign = 'center';
-                    overlayCtx.fillText('★ AQUÍ', cx, centerY + 7);
+                // Estabilizador de casilla para que las tarjetas inferiores no parpadeen en pleno giro vertical
+                if (currentWinnerSlot !== -1) {
+                    if (!isShuffling) {
+                        if (currentWinnerSlot === candidateWinnerSlot) {
+                            slotStreak++;
+                        } else {
+                            candidateWinnerSlot = currentWinnerSlot;
+                            slotStreak = 1;
+                        }
+                        if (slotStreak >= 2) {
+                            stableWinnerSlot = currentWinnerSlot;
+                        }
+                    } else {
+                        // Durante el giro, solo cambiar si la separación horizontal es amplia (> 14px)
+                        const xSpread = Math.min(
+                            Math.abs(sortedByX[1].x - sortedByX[0].x),
+                            Math.abs(sortedByX[2].x - sortedByX[1].x)
+                        );
+                        if (xSpread > 14) {
+                            stableWinnerSlot = currentWinnerSlot;
+                        }
+                    }
                 }
-            });
+
+                // Dibujar los 3 vasos en pantalla (la diana va pegada a las coordenadas 2D reales del vaso)
+                for (let i = 0; i < 3; i++) {
+                    const cup = trackedCups[i];
+                    const cx = cup.x * scaleX;
+                    const cy = cup.y * scaleY;
+                    const bodyY = (cup.y + 24) * scaleY; // Centro del cuerpo azul del vaso
+
+                    if (cup.id === ballCupId) {
+                        // DIANA VERDE FLÚOR PEGADA AL VASO CON LA BOLA
+                        overlayCtx.beginPath();
+                        overlayCtx.arc(cx, cy, 18, 0, Math.PI * 2);
+                        overlayCtx.strokeStyle = '#22c55e';
+                        overlayCtx.lineWidth = 4;
+                        overlayCtx.stroke();
+
+                        overlayCtx.beginPath();
+                        overlayCtx.arc(cx, bodyY, 34, 0, Math.PI * 2);
+                        overlayCtx.fillStyle = 'rgba(34, 197, 94, 0.38)';
+                        overlayCtx.fill();
+                        overlayCtx.lineWidth = 4;
+                        overlayCtx.strokeStyle = '#4ade80';
+                        overlayCtx.stroke();
+
+                        overlayCtx.fillStyle = '#ffffff';
+                        overlayCtx.font = '900 16px sans-serif';
+                        overlayCtx.textAlign = 'center';
+                        overlayCtx.fillText('★ BOLA', cx, bodyY + 6);
+                    } else {
+                        // Anillo azul sutil en las tapas de los otros 2 vasos para confirmar lectura
+                        overlayCtx.beginPath();
+                        overlayCtx.arc(cx, cy, 12, 0, Math.PI * 2);
+                        overlayCtx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+                        overlayCtx.lineWidth = 2;
+                        overlayCtx.stroke();
+                    }
+                }
+
+                if (ballCupId !== -1) {
+                    if (isShuffling) {
+                        statusText.textContent = "🔄 MEZCLANDO... SIGUIENDO EN 2D";
+                        statusDot.className = "w-2.5 h-2.5 bg-green-400 rounded-full animate-ping";
+                    } else {
+                        const slotNames = ["IZQUIERDA", "CENTRO", "DERECHA"];
+                        const winName = stableWinnerSlot !== -1 ? slotNames[stableWinnerSlot] : "";
+                        statusText.textContent = `✅ ¡TOCA EL VASO: ${winName}!`;
+                        statusDot.className = "w-2.5 h-2.5 bg-green-500 rounded-full";
+                    }
+                    updateCupCardsUI(stableWinnerSlot, isShuffling);
+                } else {
+                    statusText.textContent = "3 VASOS FIJADOS · ESPERANDO BOLA";
+                    statusDot.className = "w-2.5 h-2.5 bg-amber-400 rounded-full animate-pulse";
+                    updateCupCardsUI(-1, false);
+                }
+            }
+        }
+
+        function updateCupCardsUI(winnerSlot, isShuffling) {
+            const labels = ["IZQUIERDA", "CENTRO", "DERECHA"];
+            for (let i = 0; i < 3; i++) {
+                const card = document.getElementById(`cup-slot-${i}`);
+                const label = document.getElementById(`cup-label-${i}`);
+                if (i === winnerSlot) {
+                    card.classList.add('has-ball');
+                    label.textContent = isShuffling ? "SIGUIENDO..." : "¡AQUÍ ESTÁ!";
+                } else {
+                    card.classList.remove('has-ball');
+                    label.textContent = labels[i];
+                }
+            }
         }
 
         // =========================================================================
-        // MOTOR DADOS & SECUENCIA & MATHS (Iguales a la versión anterior)
+        // MOTOR DADOS (OFFLINE)
         // =========================================================================
         function processDiceOffline() {
             try {
@@ -740,7 +1020,7 @@
                 const resultEl = document.getElementById('dados-result');
                 if (totalDots > 0) {
                     resultEl.textContent = totalDots;
-                    if(totalDots !== lastDiceSum) {
+                    if (totalDots !== lastDiceSum) {
                         resultEl.classList.add('pop');
                         setTimeout(() => resultEl.classList.remove('pop'), 150);
                     }
@@ -751,6 +1031,9 @@
             } catch (e) {}
         }
 
+        // =========================================================================
+        // MOTOR SECUENCIA 3x3 (OFFLINE)
+        // =========================================================================
         function processSequence3x3Offline() {
             overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
             fastCtx.drawImage(video, 0, 0, fW, fH);
@@ -795,7 +1078,7 @@
                     overlayCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
                     overlayCtx.strokeRect(cx * scaleX, cy * scaleY, cellW * scaleX, cellH * scaleY);
                     if (targetSig) {
-                        const sig = extractSig(imgData, cx + cellW*0.18, cy + cellH*0.18, cellW*0.64, cellH*0.64, false);
+                        const sig = extractSig(imgData, Math.floor(cx + cellW*0.18), Math.floor(cy + cellH*0.18), Math.floor(cellW*0.64), Math.floor(cellH*0.64), false);
                         if (sig) {
                             const sim = compSig(targetSig, sig);
                             if (sim > bestScore) { bestScore = sim; bestCell = r * 3 + c; }
@@ -879,7 +1162,9 @@
             return best - aspectDiff * 0.25;
         }
 
-        // QUICK MATHS (IA)
+        // =========================================================================
+        // MOTOR QUICK MATHS (IA)
+        // =========================================================================
         function checkApiKeyUI() {
             if (API_KEY) {
                 document.getElementById('api-key-container').style.display = 'none';
